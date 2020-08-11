@@ -10,14 +10,14 @@ linux:
     - make check 
     - mkdir -p build
     - cp ./yasm ./build/
-    - cp COPYING ./build/
+    - cp COPYING ./build/LICENSE
     - cp BSD.txt ./build/
     - cp GNU_LGPL-2.0 ./build/
-    - cd build && 7z a yasm-linux.7z *
+    - cd build && 7z a yasm-linux-x64.7z *
   artifacts:
     build:
       paths:
-        - build/yasm-linux.7z
+        - build/yasm-linux-x64.7z
     test-results:
       paths:
         - test-suite.log
@@ -34,15 +34,15 @@ macos-x64:
     - make check 
     - mkdir -p build
     - cp ./yasm ./build/
-    - cp COPYING ./build/
+    - cp COPYING ./build/LICENSE
     - cp BSD.txt ./build/
     - cp GNU_LGPL-2.0 ./build/
     - brew install p7zip
-    - cd build && 7z a yasm-macos-x64.7z *
+    - cd build && 7z a yasm-mac-x64.7z *
   artifacts:
     build:
       paths:
-        - build/yasm-macos-x64.7z
+        - build/yasm-mac-x64.7z
     test-results:
       paths:
         - test-suite.log
@@ -60,14 +60,14 @@ windows:
       "%ProgramFiles(x86)%\MSBuild\14.0\bin\msbuild.exe" yasm.sln /p:Configuration=Release /t:yasm
     - mkdir -p build
     - cp Release\yasm.exe build
-    - cp COPYING build
+    - cp COPYING build\LICENSE
     - cp BSD.txt build
     - cp GNU_LGPL-2.0 build
-    - cd build && 7z a yasm-windows.7z *
+    - cd build && 7z a yasm-win-x86.7z *
   artifacts:
     build:
       paths:
-        - build/yasm-windows.7z
+        - build/yasm-win-x86.7z
     test-results:
       paths:
         - test-suite.log
@@ -84,5 +84,4 @@ deploy:
     - .yamato/build.yml#windows
   commands:
     - curl -sSo StevedoreUpload.exe "$STEVEDORE_UPLOAD_TOOL_URL"
-    - mono StevedoreUpload.exe --append-manifest=build/manifest.stevedore --version-len=12 --repo=testing --version="$GIT_REVISION" build/*
-    - cat build/manifest.stevedore
+    - mono StevedoreUpload.exe --append-manifest=- --version-len=12 --repo=testing --version="$GIT_REVISION" build/*
