@@ -1,0 +1,88 @@
+linux:
+  name: "Linux"
+  agent:
+    type: Unity::VM
+    image: build-system/unity-extra-ubuntu-18.04:latest
+    flavor: b1.small
+  commands:
+    - ./autogen.sh
+    - make
+    - make check 
+    - mkdir -p build
+    - cp ./yasm ./build/
+    - cp COPYING ./build/
+    - cp BSD.txt ./build/
+    - cp GNU_LGPL-2.0 ./build/
+    - cd build && 7z a yasm-linux.7z *
+  artifacts:
+    build:
+      paths:
+        - build/yasm-linux.7z
+    test-results:
+      paths:
+        - test-suite.log
+
+macos-x64:
+  name: "macOS (x64)"
+  agent:
+    type: Unity::VM::osx
+    image: build-system/unity-extra-macos-10.13:latest
+    flavor: b1.small
+  commands:
+    - ./autogen.sh
+    - make
+    - make check 
+    - mkdir -p build
+    - cp ./yasm ./build/
+    - cp COPYING ./build/
+    - cp BSD.txt ./build/
+    - cp GNU_LGPL-2.0 ./build/
+    - brew install p7zip
+    - cd build && 7z a yasm-macos-x64.7z *
+  artifacts:
+    build:
+      paths:
+        - build/yasm-macos-x64.7z
+    test-results:
+      paths:
+        - test-suite.log
+
+windows:
+  name: "Windows"
+  agent:
+    type: Unity::VM
+    image: build-system/unity-extra-windows-10:latest
+    flavor: b1.small
+  commands:
+    - cmake -S .
+    - YASM-VERSION-GEN.bat
+    - |
+      "%ProgramFiles(x86)%\MSBuild\14.0\bin\msbuild.exe" yasm.sln /p:Configuration=Release /t:yasm
+    - mkdir -p build
+    - cp Release\yasm.exe build
+    - cp COPYING build
+    - cp BSD.txt build
+    - cp GNU_LGPL-2.0 build
+    - cd build && 7z a yasm-windows.7z *
+  artifacts:
+    build:
+      paths:
+        - build/yasm-windows.7z
+    test-results:
+      paths:
+        - test-suite.log
+        
+deploy:
+  name: "Deploy to Stevedore"
+  agent:
+    type: Unity::VM
+    image: build-system/unity-extra-ubuntu-18.04:latest
+    flavor: b1.small
+  dependencies:
+    - .yamato/build.yml#linux
+    - .yamato/build.yml#macos-x64
+    - .yamato/build.yml#windows
+  commands:
+    - curl -sSo StevedoreUpload.exe "$STEVEDORE_UPLOAD_TOOL_URL"
+    - mono StevedoreUpload.exe --append-manifest=build/manifest.stevedore --version-len=12 --repo=testing --version="$GIT_REVISION" build/*
+    - cat build/manifest.stevedore
