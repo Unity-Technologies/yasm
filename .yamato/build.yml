@@ -78,8 +78,8 @@ windows:
       paths:
         - test-suite.log
         
-deploy:
-  name: "Deploy to Stevedore"
+deploy-test:
+  name: "Deploy to Stevedore (Test repository)"
   agent:
     type: Unity::VM
     image: build-system/unity-extra-ubuntu-18.04:latest
@@ -91,3 +91,23 @@ deploy:
   commands:
     - curl -sSo StevedoreUpload.exe "$STEVEDORE_UPLOAD_TOOL_URL"
     - mono StevedoreUpload.exe --append-manifest=- --version-len=12 --repo=testing --version="$GIT_REVISION" build/*
+  triggers:
+    branches:
+      only:
+      - "/.*/"
+      except:
+      - "master"
+      
+deploy-public:
+  name: "Deploy to Stevedore (Public repository)"
+  agent:
+    type: Unity::VM
+    image: build-system/unity-extra-ubuntu-18.04:latest
+    flavor: b1.small
+  dependencies:
+    - .yamato/build.yml#linux
+    - .yamato/build.yml#macos-x64
+    - .yamato/build.yml#windows
+  commands:
+    - curl -sSo StevedoreUpload.exe "$STEVEDORE_UPLOAD_TOOL_URL"
+    - mono StevedoreUpload.exe --append-manifest=- --version-len=12 --repo=public --version="$GIT_REVISION" build/*
