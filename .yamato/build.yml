@@ -12,7 +12,9 @@ linux:
     - cp ./yasm ./build/
     - cp COPYING ./build/LICENSE
     - cp BSD.txt ./build/
-    - cp GNU_LGPL-2.0 ./build/
+    # bitvect is under the Artistic license, not BSD
+    - cp Artistic.txt ./build/
+    - cp libyasm/bitvect.* ./build/
     - cd build && 7z a yasm-linux-x64.7z *
   artifacts:
     build:
@@ -36,7 +38,9 @@ macos-x64:
     - cp ./yasm ./build/
     - cp COPYING ./build/LICENSE
     - cp BSD.txt ./build/
-    - cp GNU_LGPL-2.0 ./build/
+    # bitvect is under the Artistic license, not BSD
+    - cp Artistic.txt ./build/
+    - cp libyasm/bitvect.* ./build/
     - brew install p7zip
     - cd build && 7z a yasm-mac-x64.7z *
   artifacts:
@@ -62,7 +66,9 @@ windows:
     - cp Release\yasm.exe build
     - cp COPYING build\LICENSE
     - cp BSD.txt build
-    - cp GNU_LGPL-2.0 build
+    # bitvect is under the Artistic license, not BSD
+    - cp Artistic.txt build
+    - cp libyasm/bitvect.* build
     - cd build && 7z a yasm-win-x86.7z *
   artifacts:
     build:
