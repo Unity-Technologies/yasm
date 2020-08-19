@@ -14,7 +14,8 @@ linux:
     - cp BSD.txt ./build/
     # bitvect is under the Artistic license, not BSD
     - cp Artistic.txt ./build/
-    - cp libyasm/bitvect.* ./build/
+    - cp libyasm/bitvect.c ./build/
+    - cp libyasm/bitvect.h ./build/
     - cd build && 7z a yasm-linux-x64.7z *
   artifacts:
     build:
@@ -40,7 +41,8 @@ macos-x64:
     - cp BSD.txt ./build/
     # bitvect is under the Artistic license, not BSD
     - cp Artistic.txt ./build/
-    - cp libyasm/bitvect.* ./build/
+    - cp libyasm/bitvect.c ./build/
+    - cp libyasm/bitvect.h ./build/
     - brew install p7zip
     - cd build && 7z a yasm-mac-x64.7z *
   artifacts:
@@ -68,7 +70,8 @@ windows:
     - cp BSD.txt build
     # bitvect is under the Artistic license, not BSD
     - cp Artistic.txt build
-    - cp libyasm/bitvect.* build
+    - cp libyasm/bitvect.c build
+    - cp libyasm/bitvect.h build
     - cd build && 7z a yasm-win-x86.7z *
   artifacts:
     build:
