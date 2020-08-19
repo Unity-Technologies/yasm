@@ -64,6 +64,7 @@ windows:
       "%ProgramFiles(x86)%\MSBuild\14.0\bin\msbuild.exe" yasm.sln /p:Configuration=Release /t:yasm
     - mkdir -p build
     - cp Release\yasm.exe build
+    - cp Release\yasm.dll build
     - cp COPYING build\LICENSE
     - cp BSD.txt build
     # bitvect is under the Artistic license, not BSD
