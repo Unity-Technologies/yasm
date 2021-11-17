@@ -32,19 +32,28 @@ macos-x64:
     image: build-system/unity-extra-macos-10.13:v0.3.6-620952
     flavor: b1.small
   commands:
-    - ./autogen.sh
-    - make
-    - make check 
-    - mkdir -p build
-    - cp ./yasm ./build/
-    - cp COPYING ./build/LICENSE
-    - cp BSD.txt ./build/
-    # bitvect is under the Artistic license, not BSD
-    - cp Artistic.txt ./build/
-    - cp libyasm/bitvect.c ./build/
-    - cp libyasm/bitvect.h ./build/
-    - brew install p7zip
-    - cd build && 7z a yasm-mac-x64.7z *
+    - |
+      set -euo pipefail
+      ./autogen.sh
+      make
+      make check 
+      mkdir -p build
+      cp ./yasm ./build/
+      cp COPYING ./build/LICENSE
+      cp BSD.txt ./build/
+      # bitvect is under the Artistic license, not BSD
+      cp Artistic.txt ./build/
+      cp libyasm/bitvect.c ./build/
+      cp libyasm/bitvect.h ./build/
+      wget https://public-stevedore.unity3d.com/r/public/7za-mac-x64/95bf0d3a17b5_1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11.zip
+      actual_hash=$(shasum -a 256 95bf0d3a17b5_1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11.zip | cut -f1 -d' ')
+      if [ "$actual_hash" != 1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11 ] ; then
+        echo "Error: 7za package hash does not match"
+        exit 1
+      fi
+      unzip -p 95bf0d3a17b5_1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11.zip > 7za
+      chmod +x 7za
+      cd build && ../7za a yasm-mac-x64.7z *
   artifacts:
     build:
       paths:
