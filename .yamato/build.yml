@@ -60,7 +60,7 @@ windows:
     image: build-system/unity-extra-windows-10:v0.6-921129
     flavor: b1.small
   commands:
-    - cmake -S . -DBUILD_SHARED_LIBS=OFF
+    - cmake -S . -DBUILD_SHARED_LIBS=OFF -DCMAKE_GENERATOR_PLATFORM=x64
     - YASM-VERSION-GEN.bat
     - |
       "%ProgramFiles(x86)%\MSBuild\14.0\bin\msbuild.exe" yasm.sln /p:Configuration=Release /t:yasm
@@ -72,11 +72,11 @@ windows:
     - cp Artistic.txt build
     - cp libyasm/bitvect.c build
     - cp libyasm/bitvect.h build
-    - cd build && 7z a yasm-win-x86.7z *
+    - cd build && 7z a yasm-win-x64.7z *
   artifacts:
     build:
       paths:
-        - build/yasm-win-x86.7z
+        - build/yasm-win-x64.7z
     test-results:
       paths:
         - test-suite.log
