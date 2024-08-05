@@ -58,14 +58,13 @@ macos-x64:
       cp Artistic.txt ./build/
       cp libyasm/bitvect.c ./build/
       cp libyasm/bitvect.h ./build/
-      wget https://public-stevedore.unity3d.com/r/public/7za-mac-x64/95bf0d3a17b5_1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11.zip
-      actual_hash=$(shasum -a 256 95bf0d3a17b5_1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11.zip | cut -f1 -d' ')
-      if [ "$actual_hash" != 1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11 ] ; then
+      wget https://public-stevedore.unity3d.com/r/public/7zip-mac-x64/24.07_9eb0ed9_7e1c33c7bc97514e2ab38ec6bd304e6986cd792c33356498057d9e54bc1f1d2d.zip
+      actual_hash=$(shasum -a 256 24.07_9eb0ed9_7e1c33c7bc97514e2ab38ec6bd304e6986cd792c33356498057d9e54bc1f1d2d.zip | cut -f1 -d' ')
+      if [ "$actual_hash" != 7e1c33c7bc97514e2ab38ec6bd304e6986cd792c33356498057d9e54bc1f1d2d ] ; then
         echo "Error: 7za package hash does not match"
         exit 1
       fi
-      unzip -p 95bf0d3a17b5_1887c56255e2db1134e118f27abe1ec62a2aca092ec9f72600c80659da17ca11.zip > 7za
-      chmod +x 7za
+      unzip 24.07_9eb0ed9_7e1c33c7bc97514e2ab38ec6bd304e6986cd792c33356498057d9e54bc1f1d2d.zip 7za
       cd build && ../7za a yasm-mac-x64.7z *
   artifacts:
     build:
@@ -74,6 +73,48 @@ macos-x64:
     test-results:
       paths:
         - test-suite.log
+
+macos-arm64:
+  name: "macOS (arm64)"
+  agent:
+    type: Unity::VM::osx
+    image: slough-ops/macos-13-arm64-xcode:v0.0.8-1332462
+    model: M1
+    flavor: m1.mac
+  commands:
+    - |
+      set -euo pipefail
+      brew install automake autoconf
+    - |
+      set -euo pipefail
+      ./autogen.sh
+      make
+      make check 
+      mkdir -p build
+      cp ./yasm ./build/
+      cp COPYING ./build/LICENSE
+      cp BSD.txt ./build/
+      # bitvect is under the Artistic license, not BSD
+      cp Artistic.txt ./build/
+      cp libyasm/bitvect.c ./build/
+      cp libyasm/bitvect.h ./build/
+      wget https://public-stevedore.unity3d.com/r/public/7zip-mac-arm64/24.07_9eb0ed9_27611f9240ca3b9087e240200711c3fd1ed4bbb964d6c1ad451f4e29a7c793ed.zip
+      actual_hash=$(shasum -a 256 24.07_9eb0ed9_27611f9240ca3b9087e240200711c3fd1ed4bbb964d6c1ad451f4e29a7c793ed.zip | cut -f1 -d' ')
+      if [ "$actual_hash" != 27611f9240ca3b9087e240200711c3fd1ed4bbb964d6c1ad451f4e29a7c793ed ] ; then
+        echo "Error: 7za package hash does not match"
+        exit 1
+      fi
+      unzip 24.07_9eb0ed9_27611f9240ca3b9087e240200711c3fd1ed4bbb964d6c1ad451f4e29a7c793ed.zip 7za
+      chmod +x 7za
+      cd build && ../7za a yasm-mac-arm64.7z *
+  artifacts:
+    build:
+      paths:
+        - build/yasm-mac-arm64.7z
+    test-results:
+      paths:
+        - test-suite.log
+
 
 windows:
   name: "Windows (x64)"
@@ -112,6 +153,7 @@ deploy-test:
   dependencies:
     - .yamato/build.yml#linux
     - .yamato/build.yml#macos-x64
+    - .yamato/build.yml#macos-arm64
     - .yamato/build.yml#windows
   commands:
     - curl -sSo StevedoreUpload.exe "$STEVEDORE_UPLOAD_TOOL_URL"
@@ -132,6 +174,7 @@ deploy-public:
   dependencies:
     - .yamato/build.yml#linux
     - .yamato/build.yml#macos-x64
+    - .yamato/build.yml#macos-arm64
     - .yamato/build.yml#windows
   commands:
     - curl -sSo StevedoreUpload.exe "$STEVEDORE_UPLOAD_TOOL_URL"
