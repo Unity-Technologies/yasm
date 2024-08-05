@@ -39,7 +39,7 @@ macos-x64:
   name: "macOS (x64)"
   agent:
     type: Unity::VM::osx
-    image: build-system/unity-macos-10.13:v2.945038
+    image: build-system/unity-macos-10.15:v2.2005664
     flavor: b1.small
   commands:
     - |
