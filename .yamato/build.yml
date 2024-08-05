@@ -63,7 +63,7 @@ macos-x64:
         - test-suite.log
 
 windows:
-  name: "Windows"
+  name: "Windows (x64)"
   agent:
     type: Unity::VM
     image: build-system/unity-extra-windows-10:v0.6-921129
