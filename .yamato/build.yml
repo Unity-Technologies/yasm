@@ -16,7 +16,9 @@ linux:
     - cp Artistic.txt ./build/
     - cp libyasm/bitvect.c ./build/
     - cp libyasm/bitvect.h ./build/
-    - cd build && 7z a yasm-linux-x64.7z *
+    - cd build && wget https://public-stevedore.unity3d.com/r/public/7zip-linux-x64/24.07_9eb0ed9_c8efe29fa677babdb081ddd890b23883a08327cc3bd391a865cb165b2b08597b.zip
+    - cd build && unzip 24.07_9eb0ed9_c8efe29fa677babdb081ddd890b23883a08327cc3bd391a865cb165b2b08597b.zip
+    - cd build && ./7za a yasm-linux-x64.7z *
   artifacts:
     build:
       paths:
