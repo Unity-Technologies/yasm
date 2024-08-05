@@ -2,7 +2,7 @@ linux:
   name: "Linux"
   agent:
     type: Unity::VM
-    image: build-system/unity-extra-ubuntu-18.04:henrikp-v0.4.1-617534
+    image: build-system/unity-ubuntu-18.04:v2.1411732
     flavor: b1.small
   commands:
     - ./autogen.sh
