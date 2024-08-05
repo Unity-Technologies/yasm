@@ -3,7 +3,7 @@ linux:
   agent:
     type: Unity::VM
     image: build-system/unity-ubuntu-18.04:v2.1411732
-    flavor: b1.small
+    flavor: b1.medium
   commands:
     - ./autogen.sh
     - make
@@ -67,7 +67,7 @@ windows:
   agent:
     type: Unity::VM
     image: build-system/unity-extra-windows-10:v0.6-921129
-    flavor: b1.small
+    flavor: b1.medium
   commands:
     - cmake -S . -DBUILD_SHARED_LIBS=OFF -DCMAKE_GENERATOR_PLATFORM=x64
     - YASM-VERSION-GEN.bat
