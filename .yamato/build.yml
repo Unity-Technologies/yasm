@@ -34,6 +34,9 @@ macos-x64:
   commands:
     - |
       set -euo pipefail
+      brew install automake autoconf
+    - |
+      set -euo pipefail
       ./autogen.sh
       make
       make check 
