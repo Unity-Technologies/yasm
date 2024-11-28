@@ -148,7 +148,7 @@ deploy-test:
   name: "Deploy to Stevedore (Test repository)"
   agent:
     type: Unity::VM
-    image: build-system/unity-extra-ubuntu-18.04:latest
+    image: build-system/unity-ubuntu-18.04:v2.2773060
     flavor: b1.small
   dependencies:
     - .yamato/build.yml#linux
@@ -169,7 +169,7 @@ deploy-public:
   name: "Deploy to Stevedore (Public repository)"
   agent:
     type: Unity::VM
-    image: build-system/unity-extra-ubuntu-18.04:latest
+    image: build-system/unity-ubuntu-18.04:v2.2773060
     flavor: b1.small
   dependencies:
     - .yamato/build.yml#linux
