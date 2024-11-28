@@ -158,7 +158,7 @@ deploy-test:
   commands:
     - curl -sSo StevedoreUpload "$STEVEDORE_UPLOAD_TOOL_LINUX_X64_URL"
     - chmod +x StevedoreUpload
-    - ./StevedoreUpload --append-manifest=- --version-len=12 --repo=public --version="$GIT_REVISION" build/*
+    - ./StevedoreUpload --append-manifest=- --version-len=12 --repo=testing --version="$GIT_REVISION" build/*
   triggers:
     branches:
       only:
