@@ -222,7 +222,7 @@ elf_strtab_entry_set_str(elf_strtab_entry *entry, const char *str)
 }
 
 elf_strtab_head *
-elf_strtab_create()
+elf_strtab_create(void)
 {
     elf_strtab_head *strtab = yasm_xmalloc(sizeof(elf_strtab_head));
     elf_strtab_entry *entry = yasm_xmalloc(sizeof(elf_strtab_entry));
@@ -373,7 +373,7 @@ elf_ssym_symtab_entry_print(void *data, FILE *f, int indent_level)
 }
 
 elf_symtab_head *
-elf_symtab_create()
+elf_symtab_create(void)
 {
     elf_symtab_head *symtab = yasm_xmalloc(sizeof(elf_symtab_head));
     elf_symtab_entry *entry = yasm_xmalloc(sizeof(elf_symtab_entry));
@@ -482,15 +482,15 @@ elf_symtab_write_to_file(FILE *f, elf_symtab_head *symtab,
 
         /* get size (if specified); expr overrides stored integer */
         if (entry->xsize) {
-            size_intn = yasm_intnum_copy(
-                yasm_expr_get_intnum(&entry->xsize, 1));
-            if (!size_intn) {
+            yasm_intnum *intn = yasm_expr_get_intnum(&entry->xsize, 1);
+            if (!intn) {
                 yasm_error_set(YASM_ERROR_VALUE,
                                N_("size specifier not an integer expression"));
                 yasm_errwarn_propagate(errwarns, entry->xsize->line);
-            }
+            } else
+                size_intn = yasm_intnum_copy(intn);
         }
-        else
+        if (!size_intn)
             size_intn = yasm_intnum_create_uint(entry->size);
 
         /* get EQU value for constants */

@@ -1680,6 +1680,10 @@ static void
 bin_section_data_destroy(void *data)
 {
     bin_section_data *bsd = (bin_section_data *)data;
+    if (bsd->align)
+        yasm_xfree(bsd->align);
+    if (bsd->valign)
+        yasm_xfree(bsd->valign);
     if (bsd->start)
         yasm_expr_destroy(bsd->start);
     if (bsd->vstart)
@@ -1866,7 +1870,8 @@ dosexe_objfmt_output(yasm_object *object, FILE *f, /*@unused@*/ int all_syms,
     bss_size = tot_size - size;
 #ifdef HAVE_FTRUNCATE
     if (size != tot_size)
-        ftruncate(fileno(f), EXE_HEADER_SIZE + size);
+        if (ftruncate(fileno(f), EXE_HEADER_SIZE + size))
+            ; /* No-op. Report an error? */
 #endif
     fseek(f, 0, SEEK_SET);
 

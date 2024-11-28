@@ -285,7 +285,7 @@ static const char *directives[] = {
     "%local",
     "%macro", "%pop", "%push", "%rep", "%repl", "%rotate",
     "%scope", "%stacksize",
-    "%strlen", "%substr", "%undef", "%xdefine"
+    "%strlen", "%substr", "%undef", "%warning", "%xdefine"
 };
 enum
 {
@@ -302,7 +302,7 @@ enum
     PP_LOCAL,
     PP_MACRO, PP_POP, PP_PUSH, PP_REP, PP_REPL, PP_ROTATE,
     PP_SCOPE, PP_STACKSIZE,
-    PP_STRLEN, PP_SUBSTR, PP_UNDEF, PP_XDEFINE
+    PP_STRLEN, PP_SUBSTR, PP_UNDEF, PP_WARNING, PP_XDEFINE
 };
 
 /* If this is a an IF, ELIF, ELSE or ENDIF keyword */
@@ -705,7 +705,7 @@ check_tasm_directive(char *line)
             "%%define %s %%1\n";
         char **data;
 
-        data = malloc(2*sizeof(char*));
+        data = nasm_malloc(2*sizeof(char*));
         oldline = line;
         line = nasm_malloc(strlen(irp_format) - 2 + len2 + 1);
         sprintf(line,irp_format,q);
@@ -804,7 +804,7 @@ check_tasm_directive(char *line)
         oldline = line;
         line = nasm_malloc(5 + 1 + len + 1);
         sprintf(line, "struc %s", p);
-        struc = malloc(sizeof(*struc));
+        struc = nasm_malloc(sizeof(*struc));
         struc->name = nasm_strdup(p);
         struc->fields = NULL;
         struc->lastField = NULL;
@@ -1079,7 +1079,7 @@ prepreproc(char *line)
         d = strchr(c+1, '\n');
         if (d)
             *d = '\0';
-        l = malloc(sizeof(*l));
+        l = nasm_malloc(sizeof(*l));
         l -> first = tokenise(c+1);
         l -> finishes = NULL;
         l -> next = *lp;
@@ -2249,7 +2249,10 @@ if_condition(Token * tline, int i)
                     case PP_ELIFNUM:
                     case PP_IFNNUM:
                     case PP_ELIFNNUM:
-                        j = (t->type == TOK_NUMBER);
+                        while (tok_is_(t, "+") || tok_is_(t, "-") ||
+                                   tok_type_(t, TOK_WHITESPACE))
+                            t = t->next;
+                        j = (t && t->type == TOK_NUMBER);
                         break;
                     case PP_IFSTR:
                     case PP_ELIFSTR:
@@ -2310,6 +2313,9 @@ expand_macros_in_string(char **p)
     Token *line = tokenise(*p);
     line = expand_smacro(line);
     *p = detoken(line, FALSE);
+    do
+        line = delete_Token(line);
+    while (line);
 }
 
 /**
@@ -2729,6 +2735,7 @@ do_directive(Token * tline)
             inc->next = istk;
             inc->conds = NULL;
             inc->fp = inc_fopen(p, &newname);
+            nasm_free(p);
             inc->fname = nasm_src_set_fname(newname);
             inc->lineno = nasm_src_set_linnum(0);
             inc->lineinc = 1;
@@ -2856,6 +2863,7 @@ do_directive(Token * tline)
             break;
 
         case PP_ERROR:
+        case PP_WARNING:
             tline->next = expand_smacro(tline->next);
             tline = tline->next;
             skip_white_(tline);
@@ -2864,7 +2872,7 @@ do_directive(Token * tline)
                 p = tline->text + 1;    /* point past the quote to the name */
                 p[strlen(p) - 1] = '\0';        /* remove the trailing quote */
                 expand_macros_in_string(&p);
-                error(ERR_NONFATAL, "%s", p);
+                error((i == PP_ERROR) ? ERR_NONFATAL : ERR_WARNING, "%s", p);
                 nasm_free(p);
             }
             else
@@ -5048,6 +5056,7 @@ pp_getline(void)
                 }
                 istk = i->next;
                 list->downlevel(LIST_INCLUDE);
+                nasm_free(i->fname);
                 nasm_free(i);
                 if (!istk)
                     return NULL;

@@ -228,7 +228,6 @@ static opt_option options[] =
 /* version message */
 /*@observer@*/ static const char *version_msg[] = {
     PACKAGE_STRING,
-    "Compiled on " __DATE__ ".",
     "Copyright (c) 2001-2010 Peter Johnson and other Yasm developers.",
     "Run yasm --license for licensing overview and summary."
 };
@@ -356,7 +355,7 @@ do_assemble(void)
     apply_preproc_saved_options();
 
     /* Get initial x86 BITS setting from object format */
-    if (strcmp(cur_arch_module->keyword, "x86") == 0) {
+    if (yasm__strcasecmp(cur_arch_module->keyword, "x86") == 0) {
         yasm_arch_set_var(cur_arch, "mode_bits",
                           cur_objfmt_module->default_x86_mode_bits);
     }
@@ -380,7 +379,7 @@ do_assemble(void)
     check_errors(errwarns, object, linemap);
 
     /* open the object file for output (if not already opened by dbg objfmt) */
-    if (!obj && strcmp(cur_objfmt_module->keyword, "dbg") != 0) {
+    if (!obj && yasm__strcasecmp(cur_objfmt_module->keyword, "dbg") != 0) {
         obj = open_file(obj_filename, "wb");
         if (!obj) {
             cleanup(object);
@@ -390,7 +389,8 @@ do_assemble(void)
 
     /* Write the object file */
     yasm_objfmt_output(object, obj?obj:stderr,
-                       strcmp(cur_dbgfmt_module->keyword, "null"), errwarns);
+                       yasm__strcasecmp(cur_dbgfmt_module->keyword, "null"),
+                       errwarns);
 
     /* Close object file */
     if (obj)
@@ -790,6 +790,8 @@ opt_warning_handler(char *cmd, /*@unused@*/ char *param, int extra)
         action(YASM_WARN_UNINIT_CONTENTS);
     else if (strcmp(cmd, "size-override") == 0)
         action(YASM_WARN_SIZE_OVERRIDE);
+    else if (strcmp(cmd, "segreg-in-64bit") == 0)
+        action(YASM_WARN_SEGREG_IN_64BIT);
     else
         return 1;
 
@@ -815,7 +817,7 @@ opt_exe_handler(char *cmd, /*@unused@*/ char *param, int extra)
 }
 
 static void
-apply_preproc_builtins()
+apply_preproc_builtins(void)
 {
     char *predef;
 
@@ -851,7 +853,7 @@ apply_preproc_standard_macros(const yasm_stdmac *stdmacs)
 }
 
 static void
-apply_preproc_saved_options()
+apply_preproc_saved_options(void)
 {
     constcharparam *cp, *cpnext;
 

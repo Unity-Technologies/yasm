@@ -70,6 +70,10 @@ static int special_options = 0;
 static int preproc_only = 0;
 static unsigned int force_strict = 0;
 static int generate_make_dependencies = 0;
+static int makedep_with_empty_recipts = 0;
+static int makedep_dos2unix_slash = 0;
+/*@null@*/ /*@only@*/ static const char *makedep_out_filename = NULL;
+/*@null@*/ /*@only@*/ static const char *makedep_target = NULL;
 static int warning_error = 0;   /* warnings being treated as errors */
 static FILE *errfile;
 /*@null@*/ /*@only@*/ static char *error_filename = NULL;
@@ -105,7 +109,11 @@ static int preproc_only_handler(char *cmd, /*@null@*/ char *param, int extra);
 static int opt_include_option(char *cmd, /*@null@*/ char *param, int extra);
 static int opt_preproc_option(char *cmd, /*@null@*/ char *param, int extra);
 static int opt_ewmsg_handler(char *cmd, /*@null@*/ char *param, int extra);
+static int opt_makedep_and_assemble_handler(char *cmd, /*@null@*/ char *param, int extra);
+static int opt_makedep_empty_handler(char *cmd, /*@null@*/ char *param, int extra);
+static int opt_makedep_target_handler(char *cmd, /*@null@*/ char *param, int extra);
 static int opt_makedep_handler(char *cmd, /*@null@*/ char *param, int extra);
+static int opt_makedep_dos2unix_slash_handler(char *cmd, /*@null@*/ char *param, int extra);
 static int opt_prefix_handler(char *cmd, /*@null@*/ char *param, int extra);
 static int opt_suffix_handler(char *cmd, /*@null@*/ char *param, int extra);
 #if defined(CMAKE_BUILD) && defined(BUILD_SHARED_LIBS)
@@ -136,6 +144,10 @@ static void apply_preproc_builtins(void);
 static void apply_preproc_standard_macros(const yasm_stdmac *stdmacs);
 static void apply_preproc_saved_options(void);
 static void print_list_keyword_desc(const char *name, const char *keyword);
+
+#ifndef MAX
+# define MAX(a, b)  ( ((a) > (b)) ? (a) : (b) )
+#endif
 
 /* values for special_options */
 #define SPECIAL_SHOW_HELP 0x01
@@ -178,13 +190,25 @@ static opt_option options[] =
       N_("inhibits warning messages"), NULL },
     { 'W', NULL, 0, opt_warning_handler, 0,
       N_("enables/disables warning"), NULL },
-    { 'M', NULL, 0, opt_makedep_handler, 0,
+    { 0, "MD", 1, opt_makedep_and_assemble_handler, 0,
+      N_("generate Makefile dependencies and assemble normally"),
+      N_("file")},
+    { 0, "MP", 0, opt_makedep_empty_handler, 0,
+      N_("generate empty Makefile recipts for the include files"), NULL },
+    { 0, "MT", 1, opt_makedep_target_handler, 0,
+      N_("the Makefile target to associate the dependencies with"),
+      N_("target")},
+    { 'M', NULL, 0, opt_makedep_handler, 0, /* -M must come after -MD and -MP'! */
       N_("generate Makefile dependencies on stdout"), NULL },
-    { 'E', NULL, 1, opt_error_file, 0,
+    { 0, "makedep-dos2unix-slash", 0, opt_makedep_dos2unix_slash_handler, 0,
+      N_("convert DOS to UNIX slashes in Makefile dependencies file"), NULL },
+    { 'Z', NULL, 1, opt_error_file, 0,
       N_("redirect error messages to file"), N_("file") },
     { 's', NULL, 0, opt_error_stdout, 0,
       N_("redirect error messages to stdout"), NULL },
     { 'e', "preproc-only", 0, preproc_only_handler, 0,
+      N_("preprocess only (writes output to stdout by default)"), NULL },
+    { 'E', NULL, 0, preproc_only_handler, 0,
       N_("preprocess only (writes output to stdout by default)"), NULL },
     { 'i', NULL, 1, opt_include_option, 0,
       N_("add include path"), N_("path") },
@@ -217,7 +241,6 @@ static opt_option options[] =
 /* version message */
 /*@observer@*/ static const char *version_msg[] = {
     PACKAGE_STRING,
-    "Compiled on " __DATE__ ".",
     "Copyright (c) 2001-2014 Peter Johnson and other Yasm developers.",
     "Run yasm --license for licensing overview and summary."
 };
@@ -246,12 +269,129 @@ typedef struct constcharparam {
 
 static constcharparam_head preproc_options;
 
+static char *
+dos2unix_slash(char *path)
+{
+    char *slash = strchr(path, '\\');
+    while (slash) {
+        *slash++ = '/';
+        slash = strchr(slash, '\\');
+    }
+    return path;
+}
+
+static int
+do_generate_make_dependencies(void)
+{
+    size_t empty_recipts_alloc = 0;
+    size_t empty_recipts_len = 0;
+    char *empty_recipts = NULL;
+    char *preproc_buf;
+    size_t linelen;
+    size_t got;
+    FILE *depout = stdout;
+    const char *target;
+
+    /* Open the -MD <file>. */
+    if (   makedep_out_filename != NULL
+        && strcmp(makedep_out_filename, "-") != 0) {
+        depout = open_file(makedep_out_filename, "wt");
+        if (!depout)
+            return EXIT_FAILURE;
+    }
+
+    /* -MT (and later -MQ?) can be used to specify the target name.
+       If not given, fall back on the object file. */
+    target = makedep_target ? makedep_target : obj_filename;
+
+    /* Make sure preproc_buf is large enough for either of the main
+       file names to avoid checking later (very ulikely that it isn't). */
+    linelen = strlen(target);
+    got = strlen(in_filename);
+    preproc_buf = yasm_xmalloc(MAX(PREPROC_BUF_SIZE, MAX(got, linelen) + 1));
+
+    /* The target (the object file) to add the dependencies to. */
+    if (!makedep_dos2unix_slash || makedep_target == NULL)
+        fputs(target, depout);
+    else
+        fputs(dos2unix_slash(memcpy(preproc_buf, target, linelen + 1)),
+              depout);
+
+    /* The source file (no empty rule for it, thus the code duplication). */
+    linelen += 2 + got;
+    if (linelen <= 72)
+        fputs(": ", depout);
+    else {
+        fputs(": \\\n ", depout);
+        linelen = 1 + got;
+    }
+    if (!makedep_dos2unix_slash)
+        fwrite(in_filename, got, 1, depout);
+    else
+        fwrite(dos2unix_slash(memcpy(preproc_buf, in_filename, got + 1)),
+               got, 1, depout);
+
+    /* Now the include files. */
+    while ((got = yasm_preproc_get_included_file(cur_preproc, preproc_buf,
+                                                 PREPROC_BUF_SIZE)) != 0) {
+        linelen += 1 + got;
+        if (linelen <= 72)
+            fputc(' ', depout);
+        else {
+            fputs(" \\\n ", depout);
+            linelen = 1 + got;
+        }
+        if (makedep_dos2unix_slash)
+            dos2unix_slash(preproc_buf);
+        fwrite(preproc_buf, got, 1, depout);
+
+        if (makedep_with_empty_recipts) {
+            /* We only get one shot at each include file, so we generate the
+               dummy recipts in a buffer while we're writing the dependencies
+               for the object file.  (The empty recipts makes make shut up
+               about deleted includes.) */
+            static const char empty_tail[] = ":\n\n";
+            size_t cur_len = empty_recipts_len;
+
+            empty_recipts_len = cur_len + got + sizeof(empty_tail) - 1;
+            if (empty_recipts_len >= empty_recipts_alloc) {
+                if (empty_recipts_alloc == 0)
+                    empty_recipts_alloc = 4096;
+                while (empty_recipts_len >= empty_recipts_alloc)
+                    empty_recipts_alloc *= 2;
+                empty_recipts = yasm_xrealloc(empty_recipts,
+                                              empty_recipts_alloc);
+            }
+
+            memcpy(&empty_recipts[cur_len], preproc_buf, got);
+            cur_len += got;
+            memcpy(&empty_recipts[cur_len], empty_tail, sizeof(empty_tail));
+        }
+    }
+
+    fputc('\n', depout);
+    yasm_xfree(preproc_buf);
+
+    if (empty_recipts) {
+        fputc('\n', depout);
+        fwrite(empty_recipts, empty_recipts_len, 1, depout);
+        yasm_xfree(empty_recipts);
+    }
+
+    if (   depout != stdout
+        && fclose(depout) != 0) {
+        print_error(_("error writing `%s'"), makedep_out_filename);
+        return EXIT_FAILURE;
+    }
+
+    return 0;
+}
+
 static int
 do_preproc_only(void)
 {
     yasm_linemap *linemap;
     char *preproc_buf;
-    size_t got;
     const char *base_filename;
     FILE *out = NULL;
     yasm_errwarns *errwarns = yasm_errwarns_create();
@@ -300,25 +440,7 @@ do_preproc_only(void)
 
     /* Pre-process until done */
     if (generate_make_dependencies) {
-        size_t totlen;
-
-        preproc_buf = yasm_xmalloc(PREPROC_BUF_SIZE);
-
-        fprintf(stdout, "%s: %s", obj_filename, in_filename);
-        totlen = strlen(obj_filename)+2+strlen(in_filename);
-
-        while ((got = yasm_preproc_get_included_file(cur_preproc, preproc_buf,
-                                                     PREPROC_BUF_SIZE)) != 0) {
-            totlen += got;
-            if (totlen > 72) {
-                fputs(" \\\n  ", stdout);
-                totlen = 2;
-            }
-            fputc(' ', stdout);
-            fwrite(preproc_buf, got, 1, stdout);
-        }
-        fputc('\n', stdout);
-        yasm_xfree(preproc_buf);
+        do_generate_make_dependencies();
     } else {
         while ((preproc_buf = yasm_preproc_get_line(cur_preproc)) != NULL) {
             fputs(preproc_buf, out);
@@ -388,7 +510,7 @@ do_assemble(void)
          * machine to amd64.  When we get more arches with multiple machines,
          * we should do this in a more modular fashion.
          */
-        if (strcmp(cur_arch_module->keyword, "x86") == 0 &&
+        if (yasm__strcasecmp(cur_arch_module->keyword, "x86") == 0 &&
             cur_objfmt_module->default_x86_mode_bits == 64)
             machine_name = yasm__xstrdup("amd64");
         else
@@ -399,8 +521,8 @@ do_assemble(void)
     /* If we're using amd64 and the default objfmt is elfx32, change the
      * machine to "x32".
      */
-    if (strcmp(machine_name, "amd64") == 0 &&
-	strcmp(cur_objfmt_module->keyword, "elfx32") == 0)
+    if (yasm__strcasecmp(machine_name, "amd64") == 0 &&
+	yasm__strcasecmp(cur_objfmt_module->keyword, "elfx32") == 0)
       machine = "x32";
     else
       machine = machine_name;
@@ -482,7 +604,7 @@ do_assemble(void)
     apply_preproc_saved_options();
 
     /* Get initial x86 BITS setting from object format */
-    if (strcmp(cur_arch_module->keyword, "x86") == 0) {
+    if (yasm__strcasecmp(cur_arch_module->keyword, "x86") == 0) {
         yasm_arch_set_var(cur_arch, "mode_bits",
                           cur_objfmt_module->default_x86_mode_bits);
     }
@@ -534,7 +656,7 @@ do_assemble(void)
     check_errors(errwarns, object, linemap);
 
     /* open the object file for output (if not already opened by dbg objfmt) */
-    if (!obj && strcmp(cur_objfmt_module->keyword, "dbg") != 0) {
+    if (!obj && yasm__strcasecmp(cur_objfmt_module->keyword, "dbg") != 0) {
         obj = open_file(obj_filename, "wb");
         if (!obj) {
             cleanup(object);
@@ -544,7 +666,8 @@ do_assemble(void)
 
     /* Write the object file */
     yasm_objfmt_output(object, obj?obj:stderr,
-                       strcmp(cur_dbgfmt_module->keyword, "null"), errwarns);
+                       yasm__strcasecmp(cur_dbgfmt_module->keyword, "null"),
+                       errwarns);
 
     /* Close object file */
     if (obj)
@@ -571,12 +694,17 @@ do_assemble(void)
         fclose(list);
     }
 
+    /* Generate make dependency. */
+    if (generate_make_dependencies)
+        do_generate_make_dependencies();
+
     yasm_errwarns_output_all(errwarns, linemap, warning_error,
                              print_yasm_error, print_yasm_warning);
 
     yasm_linemap_destroy(linemap);
     yasm_errwarns_destroy(errwarns);
     cleanup(object);
+    yasm_delete_include_paths();
     return EXIT_SUCCESS;
 }
 
@@ -1091,6 +1219,8 @@ opt_warning_handler(char *cmd, /*@unused@*/ char *param, int extra)
         action(YASM_WARN_UNINIT_CONTENTS);
     else if (strcmp(cmd, "size-override") == 0)
         action(YASM_WARN_SIZE_OVERRIDE);
+    else if (strcmp(cmd, "segreg-in-64bit") == 0)
+        action(YASM_WARN_SEGREG_IN_64BIT);
     else
         return 1;
 
@@ -1166,6 +1296,32 @@ opt_ewmsg_handler(/*@unused@*/ char *cmd, char *param, /*@unused@*/ int extra)
 }
 
 static int
+opt_makedep_and_assemble_handler(/*@unused@*/ char *cmd, char *param,
+                          /*@unused@*/ int extra)
+{
+    generate_make_dependencies = 1;
+    makedep_out_filename = param;
+    return 0;
+}
+
+static int
+opt_makedep_empty_handler(/*@unused@*/ char *cmd, /*@unused@*/ char *param,
+                          /*@unused@*/ int extra)
+{
+    makedep_with_empty_recipts = 1;
+    return 0;
+}
+
+static int
+opt_makedep_target_handler(/*@unused@*/ char *cmd, char *param,
+                          /*@unused@*/ int extra)
+{
+    makedep_target = param;
+    return 0;
+}
+
+
+static int
 opt_makedep_handler(/*@unused@*/ char *cmd, /*@unused@*/ char *param,
                     /*@unused@*/ int extra)
 {
@@ -1173,6 +1329,14 @@ opt_makedep_handler(/*@unused@*/ char *cmd, /*@unused@*/ char *param,
     preproc_only = 1;
     generate_make_dependencies = 1;
 
+    return 0;
+}
+
+static int
+opt_makedep_dos2unix_slash_handler(/*@unused@*/ char *cmd, /*@unused@*/ char *param,
+                    /*@unused@*/ int extra)
+{
+    makedep_dos2unix_slash = 1;
     return 0;
 }
 
@@ -1212,7 +1376,7 @@ opt_plugin_handler(/*@unused@*/ char *cmd, char *param,
 #endif
 
 static void
-apply_preproc_builtins()
+apply_preproc_builtins(void)
 {
     char *predef;
 
@@ -1245,7 +1409,7 @@ apply_preproc_standard_macros(const yasm_stdmac *stdmacs)
 }
 
 static void
-apply_preproc_saved_options()
+apply_preproc_saved_options(void)
 {
     constcharparam *cp, *cpnext;
 

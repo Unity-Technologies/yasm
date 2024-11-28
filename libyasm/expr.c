@@ -687,6 +687,7 @@ expr_level_op(/*@returned@*/ /*@only@*/ yasm_expr *e, int fold_const,
                 level_numterms--;
                 /* make sure to delete folded intnum */
                 yasm_intnum_destroy(e->terms[i].data.intn);
+                e->terms[i].data.intn = NULL;
             } else if (o != i) {
                 /* copy term if it changed places */
                 e->terms[o++] = e->terms[i];
@@ -994,7 +995,10 @@ yasm_expr__copy_except(const yasm_expr *e, int except)
 {
     yasm_expr *n;
     int i;
-    
+
+    if (e == NULL)
+        return NULL;
+
     n = yasm_xmalloc(sizeof(yasm_expr) +
                      sizeof(yasm_expr__item)*(e->numterms<2?0:e->numterms-2));
 
@@ -1260,7 +1264,7 @@ yasm_expr_get_intnum(yasm_expr **ep, int calc_bc_dist)
 {
     *ep = yasm_expr_simplify(*ep, calc_bc_dist);
 
-    if ((*ep)->op == YASM_EXPR_IDENT && (*ep)->terms[0].type == YASM_EXPR_INT)
+    if (*ep && (*ep)->op == YASM_EXPR_IDENT && (*ep)->terms[0].type == YASM_EXPR_INT)
         return (*ep)->terms[0].data.intn;
     else
         return (yasm_intnum *)NULL;
