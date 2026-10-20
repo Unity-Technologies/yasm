@@ -142,7 +142,40 @@ windows:
     test-results:
       paths:
         - test-suite.log
-        
+
+windows-arm64:
+  name: "Windows (arm64)"
+  agent:
+    type: Unity::VM::Azure
+    image: desktop/win11-arm64-unity:v2.9233077
+    model: arm
+    flavor: b1.medium
+  commands:
+    # Built natively: the build runs generator tools (re2c, genperf, ...) that it compiles for the target.
+    - |
+      for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath`) do set VSINSTALL=%%i
+      call "%VSINSTALL%\Common7\Tools\VsDevCmd.bat" -arch=arm64 -host_arch=arm64 || exit /b 1
+      cmake -S . -DBUILD_SHARED_LIBS=OFF -A ARM64 || exit /b 1
+      call YASM-VERSION-GEN.bat || exit /b 1
+      cmake --build . --config Release --target yasm || exit /b 1
+    - mkdir build
+    - copy Release\yasm.exe build
+    - copy COPYING build\LICENSE
+    - copy BSD.txt build
+    # bitvect is under the Artistic license, not BSD
+    - copy Artistic.txt build
+    - copy libyasm\bitvect.c build
+    - copy libyasm\bitvect.h build
+    - curl -sSfLO https://public-stevedore.unity3d.com/r/public/bsdtar-win-arm64/3.8.10_5557810b_9243e4390884d99b98dd52ede8a7dfa5ba5e867e546b10928ad02eccb2433b64.zip
+    - |
+      powershell -NoProfile -Command "if ((Get-FileHash 3.8.10_5557810b_9243e4390884d99b98dd52ede8a7dfa5ba5e867e546b10928ad02eccb2433b64.zip).Hash -ne '9243e4390884d99b98dd52ede8a7dfa5ba5e867e546b10928ad02eccb2433b64') { Write-Error 'bsdtar-win-arm64 package hash does not match'; exit 1 }"
+    - tar -xf 3.8.10_5557810b_9243e4390884d99b98dd52ede8a7dfa5ba5e867e546b10928ad02eccb2433b64.zip bsdtar.exe
+    - bsdtar.exe --format 7zip -cf build\yasm-win-arm64.7z -C build yasm.exe LICENSE BSD.txt Artistic.txt bitvect.c bitvect.h
+  artifacts:
+    build:
+      paths:
+        - build/yasm-win-arm64.7z
+
 deploy-test:
   name: "Deploy to Stevedore (Test repository)"
   agent:
@@ -154,6 +187,7 @@ deploy-test:
     - .yamato/build.yml#macos-x64
     - .yamato/build.yml#macos-arm64
     - .yamato/build.yml#windows
+    - .yamato/build.yml#windows-arm64
   commands:
     - curl -sSo StevedoreUpload "$STEVEDORE_UPLOAD_TOOL_LINUX_X64_URL"
     - chmod +x StevedoreUpload
